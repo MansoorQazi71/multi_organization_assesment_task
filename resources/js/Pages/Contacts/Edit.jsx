@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from "react";
 
-import { Inertia } from '@inertiajs/inertia';
+import { Inertia } from "@inertiajs/inertia";
 
-console.log('inertia', Inertia);
+console.log("inertia", Inertia);
 
 const Edit = ({ contact }) => {
     const [formData, setFormData] = useState({
-        first_name: contact.first_name || '',
-        last_name: contact.last_name || '',
-        email: contact.email || '',
-        phone: contact.phone || '',
+        first_name: contact.first_name || "",
+        last_name: contact.last_name || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
         custom_fields: contact.meta.reduce((acc, meta) => {
             acc[meta.key] = meta.value;
             return acc;
-        }, {}),  // Initialize custom fields from contact_meta
-        notes: [],  // Initialize empty notes array
+        }, {}), // Initialize custom fields from contact_meta
+        notes: contact.notes.map((note) => note.body) || [], // Initialize existing notes
     });
 
     // Handle input changes for standard fields (first name, last name, etc.)
@@ -51,19 +51,31 @@ const Edit = ({ contact }) => {
     const handleAddNote = () => {
         setFormData((prevState) => ({
             ...prevState,
-            notes: [...prevState.notes, ''], // Add an empty note field
+            notes: [...prevState.notes, ""], // Add an empty note field
         }));
     };
 
     // Handle form submission
     const handleSubmit = (e) => {
         e.preventDefault();
-        Inertia.put(`/contacts/${contact.id}`, formData);
+        // Prepare the form data for submission
+        const updatedData = {
+            ...formData,
+            notes: formData.notes.map((note) => ({ body: note })), // Format notes for submission
+            meta: Object.keys(formData.custom_fields).map((key) => ({
+                key,
+                value: formData.custom_fields[key],
+            })),
+        };
+        // Using Inertia to update the contact
+        Inertia.put(route('contact.update', contact.id), updatedData);
     };
 
     return (
         <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-            <h1 className="text-3xl font-semibold text-gray-800 mb-4">Edit Contact</h1>
+            <h1 className="text-3xl font-semibold text-gray-800 mb-4">
+                Edit Contact
+            </h1>
 
             <form onSubmit={handleSubmit}>
                 <input
@@ -101,13 +113,17 @@ const Edit = ({ contact }) => {
 
                 {/* Custom Fields */}
                 <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-gray-600">Custom Fields</h3>
+                    <h3 className="text-lg font-semibold text-gray-600">
+                        Custom Fields
+                    </h3>
                     {Object.keys(formData.custom_fields).map((key, index) => (
                         <input
                             key={index}
                             type="text"
                             value={formData.custom_fields[key]}
-                            onChange={(e) => handleCustomFieldChange(key, e.target.value)}
+                            onChange={(e) =>
+                                handleCustomFieldChange(key, e.target.value)
+                            }
                             placeholder={`Custom Field ${index + 1}`}
                             className="w-full p-2 border border-gray-300 rounded-md mb-4"
                         />
@@ -116,12 +132,16 @@ const Edit = ({ contact }) => {
 
                 {/* Notes Section */}
                 <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-gray-600">Notes</h3>
+                    <h3 className="text-lg font-semibold text-gray-600">
+                        Notes
+                    </h3>
                     {formData.notes.map((note, index) => (
                         <div key={index} className="mb-4">
                             <textarea
                                 value={note}
-                                onChange={(e) => handleNoteChange(index, e.target.value)}
+                                onChange={(e) =>
+                                    handleNoteChange(index, e.target.value)
+                                }
                                 placeholder="Enter your note"
                                 className="w-full p-2 border border-gray-300 rounded-md"
                             />

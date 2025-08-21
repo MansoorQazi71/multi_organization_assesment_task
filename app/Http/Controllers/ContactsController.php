@@ -7,6 +7,7 @@ use App\Models\ContactMeta;
 use App\Models\ContactNote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class ContactsController extends Controller
 {
@@ -83,7 +84,7 @@ class ContactsController extends Controller
         $duplicateContact->email = null; // Set email to null for new contact
         $duplicateContact->save();
 
-        return redirect()->route('contacts.show', $duplicateContact->id);
+        return redirect()->route('contacts.index', $duplicateContact->id);
     }
 
     public function createForm()
@@ -93,7 +94,7 @@ class ContactsController extends Controller
 
     public function edit($id)
     {
-        $contact = Contact::with('meta','notes')  // Include custom fields (contact_meta)
+        $contact = Contact::with('meta', 'notes')  // Include custom fields (contact_meta)
             ->findOrFail($id);
 
         return inertia('Contacts/Edit', [
@@ -102,7 +103,6 @@ class ContactsController extends Controller
     }
     public function update(Request $request, $id)
     {
-        // Validate the incoming request
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -146,7 +146,8 @@ class ContactsController extends Controller
             }
         }
 
-        // Redirect to the contact detail page after successful update
-        return redirect()->route('contacts.show', $contact->id);
+        // Return Inertia response with the updated contact information
+        return Inertia::location(route('contacts.show', $contact->id));  // Redirect to the contact show page
     }
+
 }
