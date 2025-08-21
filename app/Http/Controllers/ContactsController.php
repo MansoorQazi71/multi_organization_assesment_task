@@ -66,7 +66,7 @@ class ContactsController extends Controller
 
     public function show($id)
     {
-        $contact = Contact::findOrFail($id);
+        $contact = Contact::with(['notes.user', 'meta'])->findOrFail($id);
         return inertia('Contacts/Show', ['contact' => $contact]);
     }
 
@@ -103,6 +103,7 @@ class ContactsController extends Controller
     }
     public function update(Request $request, $id)
     {
+        // Validate incoming request
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -110,8 +111,11 @@ class ContactsController extends Controller
             'phone' => 'nullable|string|max:255',
             'notes' => 'nullable|array',
             'notes.*' => 'nullable|string',  // Validate notes
+            'custom_fields' => 'nullable|array', // Ensure custom fields are an array
+            'custom_fields.*' => 'nullable|string',  // Validate each custom field
         ]);
 
+        // Find the contact to update
         $contact = Contact::findOrFail($id);
 
         // Ensure the contact belongs to the current organization
@@ -119,7 +123,7 @@ class ContactsController extends Controller
             return redirect()->route('contacts.index')->with('error', 'You cannot edit this contact.');
         }
 
-        // Update the contact details
+        // Update the contact details (first name, last name, etc.)
         $contact->update([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
@@ -130,24 +134,30 @@ class ContactsController extends Controller
         // Update custom fields (contact_meta) if they are provided
         if ($request->has('custom_fields')) {
             foreach ($request->input('custom_fields', []) as $key => $value) {
-                ContactMeta::updateOrCreate(
-                    ['contact_id' => $contact->id, 'key' => $key],
-                    ['value' => $value]
-                );
+                // Only update or create a custom field if the value is provided
+                if ($value) {
+                    ContactMeta::updateOrCreate(
+                        ['contact_id' => $contact->id, 'key' => $key],
+                        ['value' => $value]
+                    );
+                }
             }
         }
 
         // Add or update notes (if provided)
         if ($request->has('notes')) {
+            // Loop through the notes and either update or create them
             foreach ($request->input('notes') as $noteBody) {
-                ContactNote::updateOrCreate(
-                    ['contact_id' => $contact->id, 'user_id' => Auth::id(), 'body' => $noteBody]
-                );
+                if (!empty($noteBody)) {
+                    // Only create a note if the body is not empty
+                    ContactNote::updateOrCreate(
+                        ['contact_id' => $contact->id, 'user_id' => Auth::id(), 'body' => $noteBody]
+                    );
+                }
             }
         }
 
         // Return Inertia response with the updated contact information
         return Inertia::location(route('contacts.show', $contact->id));  // Redirect to the contact show page
     }
-
 }
