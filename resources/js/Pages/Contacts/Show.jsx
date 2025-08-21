@@ -7,7 +7,7 @@ const Show = ({ contact }) => {
 
     // Ensure notes and meta are always arrays, even if undefined
     const notes = contact.notes || [];  // Default to an empty array if notes are undefined
-    const meta = contact.contact_meta || [];  // Default to an empty array if contact_meta is undefined
+    const meta = contact.meta || [];  // Default to an empty array if contact_meta is undefined
 
     // Handle adding a note to the contact
     const handleAddNote = () => {
@@ -39,12 +39,6 @@ const Show = ({ contact }) => {
             {/* Notes Section */}
             <div className="mt-8">
                 <h2 className="text-2xl font-semibold text-gray-700">Notes</h2>
-                <button
-                    onClick={handleAddNote}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition mt-4"
-                >
-                    Add Note
-                </button>
                 <ul className="space-y-4 mt-6">
                     {notes.length === 0 ? (
                         <p className="text-gray-600">No notes available for this contact.</p>
