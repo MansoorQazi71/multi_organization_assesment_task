@@ -92,6 +92,18 @@ class OrganizationController extends Controller
 
     public function createForm()
     {
-        return inertia('Organizations/Create');
+        return inertia('Organizations/Create');  // Ensure this renders the correct Inertia page
+
+        // return response()->json('in the funtion');
+
+    }
+    public function manage($id)
+    {
+        $organization = Organization::with(['contacts.meta', 'contacts.notes'])
+            ->findOrFail($id);  // Eager load contacts, contact_meta, and contact_notes
+
+        return inertia('Organizations/ManageOrganization', [
+            'organization' => $organization
+        ]);
     }
 }

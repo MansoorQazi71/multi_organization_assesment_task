@@ -42,6 +42,7 @@ class AuthenticatedSessionController extends Controller
         if ($user->organizations()->exists()) {
             // Get the first organization the user belongs to
             $organization = $user->organizations()->first();
+            session(['current_organization' => $organization->id]);
             return redirect()->route('organizations.show', $organization->id);  // Redirect to the organization page
         }
 

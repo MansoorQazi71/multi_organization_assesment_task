@@ -30,13 +30,16 @@ Route::middleware(['auth'])->group(function () {
    // Organization Routes
     Route::get('organizations', [OrganizationController::class, 'index'])->name('organizations.index');
     Route::get('organizations/{id}', [OrganizationController::class, 'show'])->name('organizations.show');
-    Route::get('organizations/create', [OrganizationController::class, 'createForm'])->name('organizations.createForm');
-    Route::post('organizations/create', [OrganizationController::class, 'create'])->name('organizations.create');
+    Route::get('organization/create', [OrganizationController::class, 'createForm'])->name('organizations.createForm');
+    Route::post('organization/create', [OrganizationController::class, 'create'])->name('organizations.create');
+    Route::get('organizations/{id}/manage', [OrganizationController::class, 'manage'])->name('organizations.manage');
     
     // Contact Routes
     Route::get('contacts', [ContactsController::class, 'index'])->name('contacts.index');
     Route::get('contacts/create', [ContactsController::class, 'createForm'])->name('contacts.createForm');
     Route::post('contacts/create', [ContactsController::class, 'create'])->name('contacts.create');
+    Route::get('contacts/{id}', [ContactsController::class, 'show'])->name('contacts.show');
+    Route::get('contacts/{id}/edit', [ContactsController::class, 'edit'])->name('contacts.edit');
 });
 
 require __DIR__.'/auth.php';

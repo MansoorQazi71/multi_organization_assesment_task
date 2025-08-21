@@ -9,6 +9,8 @@ class ContactMeta extends Model
 {
     use HasFactory;
 
+    protected $table = 'contact_meta'; // Specify the table name if it differs from the default pluralized form
+
     protected $fillable = [
         'contact_id',
         'key',
