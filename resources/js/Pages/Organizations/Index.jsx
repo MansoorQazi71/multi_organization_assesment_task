@@ -13,7 +13,7 @@ const OrganizationIndex = ({ organizations }) => {
 
     const handleCreateOrg = () => {
         // Use Inertia.get() for navigation to create organization page
-        Inertia.get('/organizations/create');
+        Inertia.get('/organization/create');
     };
 
     return (
