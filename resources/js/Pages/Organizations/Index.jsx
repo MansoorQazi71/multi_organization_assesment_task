@@ -8,7 +8,7 @@ const OrganizationIndex = ({ organizations }) => {
 
     const handleSwitchOrg = (orgId) => {
         // Use Inertia.get() for navigation
-        Inertia.get(`/switch-org/${orgId}`);
+        Inertia.post(route('organizations.switch', orgId));
     };
 
     const handleCreateOrg = () => {

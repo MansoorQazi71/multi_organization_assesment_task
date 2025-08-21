@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Inertia } from '@inertiajs/inertia-react';  // Correct import for Inertia
+import { Inertia } from '@inertiajs/inertia';  // Correct import for Inertia
 
 const CreateOrganization = () => {
     const [formData, setFormData] = useState({
@@ -20,7 +20,7 @@ const CreateOrganization = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        Inertia.post('/organizations/create', formData, {
+        Inertia.post('/organization/create', formData, {
             onError: (errors) => {
                 setErrors(errors);  // Set form validation errors
             },
