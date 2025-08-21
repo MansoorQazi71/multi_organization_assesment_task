@@ -33,6 +33,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('organization/create', [OrganizationController::class, 'createForm'])->name('organizations.createForm');
     Route::post('organization/create', [OrganizationController::class, 'create'])->name('organizations.create');
     Route::get('organizations/{id}/manage', [OrganizationController::class, 'manage'])->name('organizations.manage');
+    Route::post('/switch-org/{orgId}', [OrganizationController::class, 'switch'])
+    ->name('organizations.switch');
+
 
     // Contact Routes
     Route::get('contacts', [ContactsController::class, 'index'])->name('contacts.index');
@@ -41,7 +44,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('contacts/{id}', [ContactsController::class, 'show'])->name('contacts.show');
     Route::get('contacts/{id}/edit', [ContactsController::class, 'edit'])->name('contacts.edit');
     Route::put('contact/{id}', [ContactsController::class, 'update'])->name('contact.update');
-    Route::get('contacts/{id}/duplicate', [ContactsController::class, 'duplicate'])->name('contacts.duplicate');
+    Route::delete('contacts/{id}', [ContactsController::class, 'destroy'])->name('contact.delete');
+    Route::post('contacts/{id}/duplicate', [ContactsController::class, 'duplicate'])->name('contacts.duplicate');
 });
 
 require __DIR__ . '/auth.php';
