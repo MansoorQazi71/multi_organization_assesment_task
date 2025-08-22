@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ContactsController;
+use Illuminate\Support\Facades\Auth;
+use App\Models\{Organization, Contact, ContactNote};
+use Illuminate\Support\Facades\Storage;
 
 // Globally constrain numeric params to avoid 'create' collisions
 Route::pattern('id', '[0-9]+');
@@ -21,9 +24,6 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', fn () => Inertia::render('Dashboard'))
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -41,6 +41,10 @@ Route::middleware(['auth', 'role:admin|member'])->group(function () {
     // Organizations (read-only)
     Route::get('organizations', [OrganizationController::class, 'index'])->name('organizations.index');
     Route::get('organizations/{id}', [OrganizationController::class, 'show'])->name('organizations.show');
+    Route::get('organizations/{id}/edit', [OrganizationController::class, 'edit'])
+        ->name('organizations.edit');
+    Route::put('organizations/{id}', [OrganizationController::class, 'update'])
+        ->name('organizations.update');
 
     // Contacts (read-only)
     Route::get('contacts', [ContactsController::class, 'index'])->name('contacts.index');
@@ -95,5 +99,77 @@ Route::middleware(['auth','role:admin'])->group(function () {
     // Detach member
     Route::delete('organizations/{orgId}/users/{userId}',             [\App\Http\Controllers\OrganizationUserController::class, 'destroy'])->name('org.users.destroy');
 });
+
+Route::get('/dashboard', function () {
+    $user = Auth::user();
+
+    // Resolve current org (session first, else first org)
+    $currentOrgId = session('current_organization')
+        ?? $user->organizations()->pluck('organizations.id')->first();
+
+    $currentOrg = $currentOrgId
+        ? Organization::select('id','name','owner_user_id','slug')->find($currentOrgId)
+        : null;
+
+    // Counts scoped to current org
+    $contactsCount = $currentOrgId
+        ? Contact::where('organization_id', $currentOrgId)->count()
+        : 0;
+
+    $notesCount = $currentOrgId
+        ? ContactNote::whereHas('contact', fn($q) => $q->where('organization_id', $currentOrgId))->count()
+        : 0;
+
+    // Recent activity (limit 5 each)
+    $recentContacts = $currentOrgId
+        ? Contact::where('organization_id', $currentOrgId)
+            ->latest('id')->limit(5)
+            ->get()
+            ->map(function ($c) {
+                return [
+                    'id'    => $c->id,
+                    'name'  => trim($c->first_name.' '.$c->last_name),
+                    'email' => $c->email,
+                    'avatar_url' => $c->avatar_path ? Storage::url($c->avatar_path) : null,
+                    'created_at' => $c->created_at?->toDateTimeString(),
+                ];
+            })
+        : collect();
+
+    $recentNotes = $currentOrgId
+        ? ContactNote::with(['user:id,name', 'contact:id,first_name,last_name,organization_id'])
+            ->whereHas('contact', fn($q) => $q->where('organization_id', $currentOrgId))
+            ->latest('id')->limit(5)->get()
+            ->map(function ($n) {
+                return [
+                    'id' => $n->id,
+                    'body' => $n->body,
+                    'user' => ['name' => $n->user?->name],
+                    'contact' => [
+                        'id' => $n->contact?->id,
+                        'name' => trim(($n->contact?->first_name ?? '').' '.($n->contact?->last_name ?? '')),
+                    ],
+                    'created_at' => $n->created_at?->toDateTimeString(),
+                ];
+            })
+        : collect();
+
+    $orgs = $user->organizations()->select('organizations.id','organizations.name')->get();
+
+    // Spatie roles -> array of strings
+    $roles = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->toArray() : [];
+    $isAdmin = in_array('admin', $roles, true);
+
+    return Inertia::render('Dashboard', [
+        'user'          => ['id'=>$user->id, 'name'=>$user->name, 'email'=>$user->email],
+        'roles'         => $roles,
+        'isAdmin'       => $isAdmin,
+        'orgs'          => $orgs,
+        'currentOrg'    => $currentOrg,
+        'counts'        => ['contacts' => $contactsCount, 'notes' => $notesCount],
+        'recentContacts'=> $recentContacts,
+        'recentNotes'   => $recentNotes,
+    ]);
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/auth.php';
