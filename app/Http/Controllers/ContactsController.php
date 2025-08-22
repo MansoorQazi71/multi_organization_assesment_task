@@ -12,11 +12,30 @@ use Illuminate\Support\Facades\Storage;
 
 class ContactsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $contacts = Contact::where('organization_id', session('current_organization'))
+        $orgId = session('current_organization');
+        abort_unless($orgId, 403);
+
+        $q = trim((string) $request->input('q', ''));
+
+        $contacts = Contact::query()
+            ->where('organization_id', $orgId)
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($inner) use ($q) {
+                    $inner->where('first_name', 'like', "%{$q}%")
+                        ->orWhere('last_name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+                });
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
             ->get();
-        return inertia('Contacts/Index', ['contacts' => $contacts]);
+
+        return Inertia::render('Contacts/Index', [
+            'contacts' => $contacts,
+            'filters'  => ['q' => $q], // pass current search back to the page
+        ]);
     }
 
 
