@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use Inertia\Inertia;
 use App\Models\Contact;
 use App\Models\ContactMeta;
 use App\Models\ContactNote;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ContactsController extends Controller
 {
@@ -44,30 +47,55 @@ class ContactsController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name'  => 'required|string|max:255',
-            'email'      => 'nullable|email|unique:contacts,email,NULL,id,organization_id,' . session('current_organization'),
+            // IMPORTANT: remove the unique rule here so we can return the exact custom 422 payload
+            'email'      => 'nullable|email',
             'phone'      => 'nullable|string|max:255',
             'notes'      => 'nullable|array',
             'notes.*'    => 'nullable|string',
-            'avatar'     => 'nullable|image|max:2048', // <— NEW (2MB)
+            'avatar'     => 'nullable|image|max:2048',
         ]);
 
-        // Handle avatar upload (optional)
+        $orgId = (int) session('current_organization');
+
+        // --- EXACT DEDUP LOGIC (case-insensitive) ---
+        if ($email = $request->input('email')) {
+            $existing = Contact::where('organization_id', $orgId)
+                ->whereRaw('LOWER(email) = ?', [Str::lower($email)])
+                ->first();
+
+            if ($existing) {
+                Log::info('duplicate_contact_blocked', [
+                    'org_id'  => $orgId,
+                    'email'   => $email,
+                    'user_id' => Auth::id(),
+                ]);
+
+                // Return EXACT payload the UI expects
+                return response()->json([
+                    'code' => 'DUPLICATE_EMAIL',
+                    'existing_contact_id' => $existing->id,
+                ], 422);
+            }
+        }
+
+        // Avatar upload (optional)
         $avatarPath = null;
         if ($request->hasFile('avatar')) {
-            // stores to storage/app/public/avatars/...
             $avatarPath = $request->file('avatar')->store('avatars', 'public');
         }
 
+        // Create the contact
         $contact = Contact::create([
-            'organization_id' => session('current_organization'),
+            'organization_id' => $orgId,
             'first_name'      => $request->first_name,
             'last_name'       => $request->last_name,
             'email'           => $request->email,
             'phone'           => $request->phone,
-            'avatar_path'     => $avatarPath,     // <— NEW
+            'avatar_path'     => $avatarPath,
             'created_by'      => Auth::id(),
         ]);
 
+        // Custom fields (meta)
         foreach ($request->input('custom_fields', []) as $key => $value) {
             if ($value !== null && $value !== '') {
                 ContactMeta::create([
@@ -78,15 +106,14 @@ class ContactsController extends Controller
             }
         }
 
-        if ($request->has('notes')) {
-            foreach ($request->input('notes') as $noteBody) {
-                if ($noteBody && trim($noteBody) !== '') {
-                    ContactNote::create([
-                        'contact_id' => $contact->id,
-                        'user_id'    => Auth::id(),
-                        'body'       => $noteBody,
-                    ]);
-                }
+        // Notes
+        foreach ($request->input('notes', []) as $noteBody) {
+            if ($noteBody && trim($noteBody) !== '') {
+                ContactNote::create([
+                    'contact_id' => $contact->id,
+                    'user_id'    => Auth::id(),
+                    'body'       => $noteBody,
+                ]);
             }
         }
 
@@ -95,10 +122,16 @@ class ContactsController extends Controller
 
 
 
-    public function show($id)
+    public function show($id, Request $request)
     {
-        $contact = Contact::with(['notes.user', 'meta'])->findOrFail($id);
-        return inertia('Contacts/Show', ['contact' => $contact]);
+        $contact = Contact::with(['notes.user', 'meta'])
+            ->where('organization_id', session('current_organization'))
+            ->findOrFail($id);
+
+        return Inertia::render('Contacts/Show', [
+            'contact' => $contact,
+            'duplicate_detected' => $request->boolean('duplicate'), // 👈 add this
+        ]);
     }
 
     public function destroy($id)
@@ -134,13 +167,22 @@ class ContactsController extends Controller
     }
 
 
+
     public function update(Request $request, $id)
     {
-        // Validate (limit custom fields to 5, allow image up to 2MB)
+        // Normalize session org id to an integer
+        $orgId = (int) session('current_organization');
+
         $request->validate([
             'first_name'      => 'required|string|max:255',
             'last_name'       => 'required|string|max:255',
-            'email'           => 'nullable|email|unique:contacts,email,' . $id . ',id,organization_id,' . session('current_organization'),
+            'email'           => [
+                'nullable',
+                'email',
+                Rule::unique('contacts', 'email')
+                    ->ignore($id)
+                    ->where(fn($q) => $q->where('organization_id', $orgId)),
+            ],
             'phone'           => 'nullable|string|max:255',
 
             'custom_fields'   => 'nullable|array|max:5',
@@ -155,62 +197,49 @@ class ContactsController extends Controller
 
         $contact = Contact::findOrFail($id);
 
-        // Enforce org isolation
-        if ($contact->organization_id !== session('current_organization')) {
-            return redirect()->route('contacts.index')->with('error', 'You cannot edit this contact.');
+        // Enforce org isolation (cast both sides to int)
+        if ((int) $contact->organization_id !== $orgId) {
+            return redirect()
+                ->route('contacts.index')
+                ->with('error', 'You cannot edit this contact.');
         }
 
-        // ---- Core fields ----
+        // Core fields
         $contact->first_name = $request->first_name;
         $contact->last_name  = $request->last_name;
         $contact->email      = $request->email;
         $contact->phone      = $request->phone;
 
-        // ---- Avatar remove / replace ----
+        // Avatar remove/replace
         if ($request->boolean('remove_avatar') && $contact->avatar_path) {
             Storage::disk('public')->delete($contact->avatar_path);
             $contact->avatar_path = null;
         }
-
         if ($request->hasFile('avatar')) {
             if ($contact->avatar_path) {
                 Storage::disk('public')->delete($contact->avatar_path);
             }
-            $contact->avatar_path = $request->file('avatar')->store('avatars', 'public'); // => 'avatars/xxx.jpg'
+            $contact->avatar_path = $request->file('avatar')->store('avatars', 'public');
         }
 
         $contact->save();
 
-        // =========================================================
-        //  Sync CUSTOM FIELDS (ContactMeta)
-        //  Treat missing input as empty => removing all clears all.
-        // =========================================================
-        $incomingMeta = (array) $request->input('custom_fields', []);
-
-        // Delete all existing meta for this contact…
+        // Re-sync meta (treat missing as empty)
         ContactMeta::where('contact_id', $contact->id)->delete();
-        // …then recreate from submitted non-empty values.
-        foreach ($incomingMeta as $key => $value) {
+        foreach ((array) $request->input('custom_fields', []) as $key => $value) {
             $val = is_string($value) ? trim($value) : $value;
             if ($val !== '' && $val !== null) {
                 ContactMeta::create([
                     'contact_id' => $contact->id,
-                    'key'        => $key,
+                    'key'        => (string) $key,
                     'value'      => $val,
                 ]);
             }
         }
 
-        // ===========================================
-        //  Sync NOTES
-        //  Treat missing input as empty => clear all.
-        // ===========================================
-        $incomingNotes = $request->input('notes', []);
-
-        // Delete all existing notes, then recreate from incoming non-empty notes
+        // Re-sync notes (treat missing as empty)
         ContactNote::where('contact_id', $contact->id)->delete();
-
-        foreach ($incomingNotes as $noteBody) {
+        foreach ((array) $request->input('notes', []) as $noteBody) {
             $val = is_string($noteBody) ? trim($noteBody) : $noteBody;
             if ($val !== '' && $val !== null) {
                 ContactNote::create([
@@ -221,9 +250,10 @@ class ContactsController extends Controller
             }
         }
 
-        // Go back to Show page
-        return Inertia::location(route('contacts.show', $contact->id));
+        return redirect()->route('contacts.show', $contact->id);
     }
+
+
 
 
 

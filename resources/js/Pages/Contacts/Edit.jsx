@@ -138,7 +138,10 @@ const Edit = ({ contact }) => {
         if (avatarFile) data.append("avatar", avatarFile);
         data.append("remove_avatar", removeAvatar ? "1" : "0");
 
-        Inertia.post(`/contacts/${contact.id}`, data, { forceFormData: true });
+        // Edit.jsx — in handleSubmit
+        Inertia.post(route("contacts.update", contact.id), data, {
+            forceFormData: true,
+        });
     };
 
     const customFieldEntries = Object.entries(formData.custom_fields);
