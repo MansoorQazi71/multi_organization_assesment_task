@@ -29,11 +29,27 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        $user = $request->user();
+
+        return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
+                'user'  => $user,
+                // Spatie roles: ['admin'] or ['member']
+                'roles' => $user ? $user->getRoleNames() : [],
             ],
-        ];
+
+            // For navbar “Org Members” link, etc.
+            'current_organization' => session('current_organization'),
+
+            // Handy for plain HTML forms (and debugging 419s)
+            'csrf_token' => csrf_token(),
+
+            // Flash messages (lazy-evaluated per Inertia recommendation)
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error'   => fn () => $request->session()->get('error'),
+                'message' => fn () => $request->session()->get('message'),
+            ],
+        ]);
     }
 }

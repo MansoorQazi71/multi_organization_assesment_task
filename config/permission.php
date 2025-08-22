@@ -121,6 +121,8 @@ return [
      */
 
     'teams' => false,
+    // 'team_foreign_key' => 'organization_id', // or keep default 'team_id' if your migrations use that
+
 
     /*
      * The class to use to resolve the permissions team id

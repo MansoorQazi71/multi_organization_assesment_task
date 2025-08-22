@@ -4,49 +4,69 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Contact;
-use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use App\Models\Organization;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
-    public function run()
+    public function run(): void
     {
-        // Create roles
-        $adminRole = Role::create(['name' => 'admin']);
-        $memberRole = Role::create(['name' => 'member']);
+        // Always clear cached roles/permissions before changes
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // Create users
-        $admin = User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-        ]);
-        $admin->assignRole('admin');  // Assign the admin role
+        DB::transaction(function () {
+            // ===== 1) Roles (case-sensitive; match your middleware) =====
+            // If your routes use role:admin|member (lowercase), keep lowercase here.
+            $adminRole  = Role::findOrCreate('admin', 'web');
+            $memberRole = Role::findOrCreate('member', 'web');
 
-        $member = User::factory()->create([
-            'name' => 'Member User',
-            'email' => 'member@example.com',
-        ]);
-        $member->assignRole('member');  // Assign the member role
+            // ===== 2) Users =====
+            $admin = User::firstOrCreate(
+                ['email' => 'admin@example.com'],
+                ['name' => 'Admin User', 'password' => bcrypt('password')] // change in dev only
+            );
 
-        // Create an organization
-        $organization = Organization::create([
-            'name' => 'Test Organization',
-            'slug' => 'test-org',
-            'owner_user_id' => $admin->id,
-        ]);
+            $member = User::firstOrCreate(
+                ['email' => 'member@example.com'],
+                ['name' => 'Member User', 'password' => bcrypt('password')]
+            );
 
-        // Attach admin and member to the organization
-        $organization->users()->attach($admin->id, ['role' => 'admin']);
-        $organization->users()->attach($member->id, ['role' => 'member']);
+            // ===== 3) Organization =====
+            $organization = Organization::firstOrCreate(
+                ['slug' => 'test-org'],
+                ['name' => 'Test Organization', 'owner_user_id' => $admin->id]
+            );
 
-        // Create some contacts
-        Contact::factory(10)->create([
-            'organization_id' => $organization->id,
-            'created_by' => $admin->id,
-        ]);
+            // ===== 4) Attach users to organization pivot =====
+            // Avoid duplicate attaches
+            $organization->users()->syncWithoutDetaching([
+                $admin->id  => ['role' => 'admin'],
+                $member->id => ['role' => 'member'],
+            ]);
+
+            // ===== 5) Assign roles (optionally scoped per organization) =====
+            // If you enabled teams in config/permission.php:
+            // 'teams' => true, 'team_foreign_key' => 'organization_id'
+            if (config('permission.teams')) {
+                app(PermissionRegistrar::class)->setPermissionsTeamId($organization->id);
+            }
+
+            $admin->assignRole($adminRole);
+            $member->assignRole($memberRole);
+
+            // ===== 6) Seed contacts =====
+            if (! Contact::where('organization_id', $organization->id)->exists()) {
+                Contact::factory(10)->create([
+                    'organization_id' => $organization->id,
+                    'created_by'      => $admin->id,
+                ]);
+            }
+        });
+
+        // Re-cache after seeding
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

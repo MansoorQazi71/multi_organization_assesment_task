@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Contact extends Model
 {
@@ -17,7 +18,15 @@ class Contact extends Model
         'phone',
         'avatar_path',
         'created_by',
+        'avatar_path',
     ];
+
+     protected $appends = ['avatar_url']; // <-- include in JSON/Inertia
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar_path ? Storage::url($this->avatar_path) : null;
+    }
 
     // Relationship: A contact belongs to an organization
     public function organization()
