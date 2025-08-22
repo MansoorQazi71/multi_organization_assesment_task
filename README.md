@@ -348,19 +348,3 @@ DESIGN.md — models, routes, scoping, duplicate flow, UI outline
 AI_NOTES.md — prompts & decisions (what was accepted/rejected)
 
 TESTS.md — how to run tests + final green output
-
-If these files are not present yet, add them before submission.
-
-✅ Acceptance Beacons
-
-Breeze + spatie/laravel-permission used
-
-storage:link done; avatars show from /storage/...
-
-Health is OK (/up, or /healthz if you added it)
-
-Two minimum tests added & green
-
-Code formatted with Pint
-
-README ends with the exact phrase below 👇
