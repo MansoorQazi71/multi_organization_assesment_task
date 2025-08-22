@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Inertia } from '@inertiajs/inertia';
+import NavBar from '@/Components/NavBar';
 
 console.log('inertia', Inertia);
 
@@ -17,8 +18,10 @@ const OrganizationIndex = ({ organizations }) => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 p-6">
-            <div className="container mx-auto">
+        <div className="min-h-screen bg-gray-100">
+            {/* Navbar at the top */}
+            <NavBar />
+            <div className="container mx-auto p-6">
                 <h1 className="text-3xl font-bold mb-6 text-gray-900">Organizations</h1>
                 
                 <button 

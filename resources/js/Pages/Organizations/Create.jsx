@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Inertia } from '@inertiajs/inertia';  // Correct import for Inertia
+import { Inertia } from '@inertiajs/inertia'; 
+import NavBar from '@/Components/NavBar';
 
 const CreateOrganization = () => {
     const [formData, setFormData] = useState({
@@ -31,8 +32,10 @@ const CreateOrganization = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 p-6">
-            <div className="container mx-auto">
+        <div className="min-h-screen bg-gray-100">
+            {/* Navbar at the top */}
+            <NavBar />
+            <div className="container mx-auto p-6">
                 <h1 className="text-3xl font-bold mb-6 text-gray-900">Create New Organization</h1>
                 
                 <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
@@ -70,6 +73,7 @@ const CreateOrganization = () => {
                     </button>
                 </form>
             </div>
+
         </div>
     );
 };
