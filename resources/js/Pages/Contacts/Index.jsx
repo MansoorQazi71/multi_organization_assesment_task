@@ -126,7 +126,7 @@ const Index = ({ contacts, filters }) => {
                     >
                       Delete
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => handleDuplicate(contact.id)}
                       disabled={isBusy}
                       className={`bg-green-500 text-white px-3 py-1 rounded-md ${
@@ -134,7 +134,7 @@ const Index = ({ contacts, filters }) => {
                       }`}
                     >
                       {isBusy ? "Duplicating…" : "Duplicate"}
-                    </button>
+                    </button> */}
                   </div>
                 </li>
               );
