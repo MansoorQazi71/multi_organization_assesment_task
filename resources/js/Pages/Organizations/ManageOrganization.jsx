@@ -84,12 +84,12 @@ const ManageOrganization = ({ organization }) => {
                   >
                     Delete
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => handleDuplicateContact(contact.id)}
                     className="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600"
                   >
                     Duplicate
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => handleAddNote(contact.id)}
                     className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
